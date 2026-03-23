@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>간단 앵그리버드 - 스테이지 버전</title>
+<style>
+  body { font-family: Arial, sans-serif; margin:0; background:#bfe9ff; }
+  header { background:#037; color:#fff; padding:10px 16px; display:flex; align-items:center; justify-content:space-between; }
+  header h1 { margin:0; font-size:18px; }
+  .hud { color:#fff; display:flex; gap:12px; align-items:center; }
+  #gameWrap { display:flex; gap:12px; padding:12px; }
+  canvas { background: linear-gradient(#87CEEB, #e0f7ff); border:2px solid #333; border-radius:6px; touch-action:none; }
+  .controls { width:260px; }
+  .panel { background:rgba(255,255,255,0.95); padding:10px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.2); }
+  button { padding:8px 12px; margin-right:6px; border:none; background:#037; color:#fff; border-radius:4px; cursor:pointer; }
+  button.secondary { background:#666; }
+  .info { margin-top:8px; font-size:14px; }
+  .blockCount { font-weight:600; }
+  footer { padding:10px 16px; color:#333; font-size:13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>간단 앵그리버드 — 스테이지 모드 🐦🎯</h1>
+  <div class="hud">
+    <div id="stageLabel">Stage: 1</div>
+    <div id="scoreLabel">Score: 0</div>
+    <div id="shotsLabel">Shots: 0</div>
+  </div>
+</header>
+
+<div id="gameWrap">
+  <canvas id="gameCanvas" width="900" height="500"></canvas>
+
+  <div class="controls">
+    <div class="panel">
+      <div>
+        <button id="restartBtn">Restart</button>
+        <button id="nextBtn" class="secondary">Next</button>
+      </div>
+      <div class="info">
+        <div>남은 블록: <span id="leftBlocks" class="blockCount">0</span></div>
+        <div id="message" style="margin-top:8px;"></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:10px;">
+      <div><strong>설명</strong></div>
+      <div style="font-size:13px; margin-top:6px;">
+        새를 드래그하여 발사하세요. 모든 블록을 파괴하면 다음 스테이지로 이동합니다. (모바일 터치 지원)
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>간단 구현(교육용) — 충돌·물리는 단순화되어 있습니다. 즐겁게 실습하세요! 😊✨</footer>
+
+<script>
+/* ========= 기본 게임 변수 ========= */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let score = 0;
+let shots = 0;
+let stageIndex = 0; // 0-based
+const maxStages = 10; // 총 스테이지 수 (설정 가능)
+let blocks = [];
+let birds = [];
+let currentBird = null;
+let isDragging = false;
+let mousePos = {x:0,y:0};
+const gravity = 0.45;
+const airDrag = 0.998;
+
+/* ====== 스테이지 구성 (각 스테이지마다 블록 모양/개수/위치 설정) ======
+   각 블록은 {x,y,w,h,shape,hp,color} 형식. shape: 'rect'|'circle'|'triangle'
+*/
+const stageConfigs = [
+  // Stage 1 (간단)
+  function(w,h){
+    return [
+      { x:650, y:380, w:60, h:60, shape:'rect', hp:2, color:'#a0522d' },
+      { x:720, y:380, w:60, h:60, shape:'rect', hp:2, color:'#a0522d' }
+    ];
+  },
+  // Stage 2 (원 추가)
+  function(w,h){
+    return [
+      { x:640, y:380, w:60, h:60, shape:'rect', hp:2, color:'#a0522d' },
+      { x:710, y:380, w:60, h:60, shape:'rect', hp:2, color:'#a0522d' },
+      { x:675, y:320, w:44, h:44, shape:'circle', hp:1, color:'#8b0000' }
+    ];
+  },
+  // Stage 3 (탑 형성)
+  function(w,h){
+    return [
+      { x:620, y:380, w:50, h:80, shape:'rect', hp:3, color:'#8b4513' },
+      { x:680, y:380, w:50, h:80, shape:'rect', hp:3, color:'#8b4513' },
+      { x:650, y:300, w:120, h:30, shape:'rect', hp:2, color:'#deb887' },
+      { x:740, y:360, w:40, h:40, shape:'circle', hp:1, color:'#228B22' } // obstacle
+    ];
+  },
+  // Stage 4 (삼각형 포함)
+  function(w,h){
+    return [
+      { x:600, y:380, w:60, h:60, shape:'rect', hp:2, color:'#c48b3a' },
+      { x:660, y:350, w:80, h:40, shape:'triangle', hp:2, color:'#9acd32' },
+      { x:740, y:380, w:60, h:60, shape:'rect', hp:2, color:'#c48b3a' }
+    ];
+  },
+  // Stage 5 (복합)
+  function(w,h){
+    const arr = [];
+    for(let i=0;i<3;i++){
+      arr.push({x:600 + i*60, y:380, w:50, h:60, shape:'rect', hp:2, color:'#8b4513'});
+    }
+    arr.push({x:650, y:320, w:40, h:40, shape:'circle', hp:2, color:'#8b0000'});
+    arr.push({x:720, y:360, w:60, h:40, shape:'triangle', hp:2, color:'#2e8b57'});
+    return arr;
+  },
+  // Stage 6 (더 많은 블록, 난이도 상승)
+  function(w,h){
+    const arr = [];
+    for(let r=0;r<3;r++){
+      for(let c=0;c<4;c++){
+        arr.push({ x:600 + c*50, y:380 - r*50, w:46, h:46, shape:'rect', hp:2, color:'#a0522d' });
+      }
+    }
+    arr.push({ x:800, y:360, w:50, h:50, shape:'circle', hp:3, color:'#8b0000' });
+    return arr;
+  }
+  // 필요하면 stageConfigs에 더 많은 함수(총 maxStages개) 추가 가능
+];
+
+// 만약 stageConfigs보다 maxStages가 크면, 마지막 구성을 반복하거나 자동 생성
+function getStageConfig(idx){
+  if(idx < stageConfigs.length) return stageConfigs[idx](canvas.width, canvas.height);
+  // 이후 스테이지는 이전 패턴을 변형해서 자동 생성
+  const base = stageConfigs[stageConfigs.length - 1](canvas.width, canvas.height);
+  // 약간 변형해서 리턴
+  return base.map((b,i)=>({
+    ...b,
+    x: b.x + (i%2? 20 : -20),
+    hp: Math.min(4, b.hp + 1)
+  }));
+}
+
+/* ========= 유틸 및 물리 ========= */
+function rand(a,b){ return a + Math.random()*(b-a); }
+
+function resetGame(){
+  score = 0; shots = 0; stageIndex = 0;
+  loadStage(stageIndex);
+  updateHUD();
+  message('');
+}
+
+function loadStage(idx){
+  blocks = [];
+  birds = [];
+  currentBird = null;
+  const cfg = getStageConfig(idx);
+  cfg.forEach(b=>{
+    blocks.push({
+      x: b.x, y: b.y,
+      w: b.w, h: b.h,
+      shape: b.shape || 'rect',
+      hp: b.hp || 1,
+      color: b.color || '#a52a2a',
+      vx:0, vy:0
+    });
+  });
+  spawnBird();
+  updateHUD();
+  message('스테이지 ' + (idx+1) + ' 시작!');
+}
+
+function spawnBird(){
+  const startX = 170;
+  const startY = 110; // 요청하신 새 높이: 기존보다 위로
+  const r = 16;
+  currentBird = {
+    x: startX, y: startY, r,
+    vx:0, vy:0,
+    launched:false,
+    alive:true
+  };
+  birds.push(currentBird);
+}
+
+/* ========= 충돌감지(단순) ========= */
+// 원-사각 충돌 체크 (간단)
+function circleRectCollision(circle, rect){
+  const cx = circle.x;
+  const cy = circle.y;
+  const rx = rect.x + rect.w/2;
+  const ry = rect.y + rect.h/2;
+  const hw = rect.w/2;
+  const hh = rect.h/2;
+  // 반사적 방법: 원의 가장 가까운 점을 찾음
+  const nearestX = Math.max(rect.x, Math.min(cx, rect.x+rect.w));
+  const nearestY = Math.max(rect.y, Math.min(cy, rect.y+rect.h));
+  const dx = cx - nearestX;
+  const dy = cy - nearestY;
+  return (dx*dx + dy*dy) <= (circle.r*circle.r);
+}
+
+// 원-원 충돌
+function circleCircleCollision(a,b){
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  const dist2 = dx*dx + dy*dy;
+  const rsum = a.r + (b.w/2 || 0);
+  return dist2 <= rsum*rsum;
+}
+
+/* ========= 게임 루프 ========= */
+let lastTime = 0;
+function loop(ts){
+  const dt = Math.min(30, ts - lastTime);
+  lastTime = ts;
+  update(dt/16);
+  render();
+  requestAnimationFrame(loop);
+}
+
+function update(scale){
+  // 물리
+  birds.forEach(b=>{
+    if(!b.launched || !b.alive) return;
+    b.vy += gravity * scale;
+    b.vx *= airDrag;
+    b.vy *= airDrag;
+    b.x += b.vx * scale;
+    b.y += b.vy * scale;
+    // 바닥 충돌(간단)
+    if(b.y + b.r > canvas.height - 10){
+      b.y = canvas.height - 10 - b.r;
+      b.vy *= -0.35;
+      b.vx *= 0.7;
+      // 작게 튕기면 멈추게 처리
+      if(Math.abs(b.vy) < 0.5) b.vy = 0;
+      if(Math.abs(b.vx) < 0.2) b.vx = 0;
+    }
+  });
+
+  // 충돌 감지: 각 새와 블록 간 충돌
+  birds.forEach(b=>{
+    if(!b.launched || !b.alive) return;
+    blocks.forEach((blk, idx)=>{
+      if(blk._dead) return;
+      let hit = false;
+      if(blk.shape === 'rect' || blk.shape === 'triangle'){
+        if(circleRectCollision(b, blk)) hit = true;
+      } else if(blk.shape === 'circle'){
+        // treat block as circle with radius w/2
+        const cblk = { x: blk.x, y: blk.y, r: blk.w/2 };
+        if(circleCircleCollision(b, cblk)) hit = true;
+      }
+      if(hit){
+        // 간단 피해량 계산: 속도 기반
+        const impact = Math.min(4, Math.floor(Math.hypot(b.vx, b.vy) / 2) + 1);
+        blk.hp -= impact;
+        // 반발력 적용 (간단)
+        b.vx *= -0.4;
+        b.vy *= -0.4;
+        if(blk.hp <= 0){
+          blk._dead = true;
+          score += 100;
+        } else {
+          score += 10;
+        }
+      }
+    });
+  });
+
+  // 블록 제거 및 카운트 업데이트
+  const aliveBlocks = blocks.filter(b=>!b._dead);
+  if(aliveBlocks.length !== blocks.length){
+    blocks = aliveBlocks;
+    updateHUD();
+  }
+
+  // 스테이지 완료 검사
+  if(blocks.length === 0){
+    // 다음 스테이지로 자동 이동 (마지막이면 축하 메시지)
+    if(stageIndex + 1 < maxStages){
+      stageIndex++;
+      message('스테이지 완료! 다음 스테이지로 이동합니다 🎉');
+      loadStage(stageIndex);
+    } else {
+      message('모든 스테이지 완료! 축하합니다 🎉✨');
+    }
+  }
+}
+
+function render(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // 땅
+  ctx.fillStyle = '#4b5320';
+  ctx.fillRect(0, canvas.height - 10, canvas.width, 10);
+
+  // 슬링 고정점 (시각)
+  ctx.fillStyle = '#3b2f2f';
+  ctx.beginPath();
+  ctx.arc(170, 110, 4, 0, Math.PI*2);
+  ctx.fill();
+
+  // 블록 렌더
+  blocks.forEach(blk=>{
+    ctx.save();
+    ctx.fillStyle = blk.color;
+    ctx.strokeStyle = '#333';
+    if(blk.shape === 'rect'){
+      ctx.fillRect(blk.x, blk.y, blk.w, blk.h);
+      ctx.strokeRect(blk.x, blk.y, blk.w, blk.h);
+    } else if(blk.shape === 'circle'){
+      ctx.beginPath();
+      ctx.arc(blk.x, blk.y, blk.w/2, 0, Math.PI*2);
+      ctx.fill();
+      ctx.stroke();
+    } else if(blk.shape === 'triangle'){
+      ctx.beginPath();
+      ctx.moveTo(blk.x, blk.y);
+      ctx.lineTo(blk.x + blk.w/2, blk.y - blk.h);
+      ctx.lineTo(blk.x + blk.w, blk.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+    // HP 표시
+    ctx.fillStyle = '#fff';
+    ctx.font = '12px Arial';
+    ctx.fillText('HP:'+blk.hp, blk.x + 4, blk.y + 14);
+    ctx.restore();
+  });
+
+  // 새 렌더
+  birds.forEach(b=>{
+    ctx.save();
+    ctx.beginPath();
+    ctx.fillStyle = '#ff4b4b';
+    ctx.arc(b.x, b.y, b.r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#800';
+    ctx.stroke();
+    ctx.restore();
+  });
+
+  // 드래그 줄(발사 전)
+  if(isDragging && currentBird && !currentBird.launched){
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(170, 110);
+    ctx.lineTo(currentBird.x, currentBird.y);
+    ctx.stroke();
+  }
+}
+
+/* ========= 입력 처리 (마우스/터치) ========= */
+function getCanvasPos(e){
+  const rect = canvas.getBoundingClientRect();
+  if(e.touches && e.touches[0]){
+    return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+  } else {
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+}
+
+canvas.addEventListener('pointerdown', (ev)=>{
+  const p = getCanvasPos(ev);
+  if(currentBird && !currentBird.launched){
+    const dx = p.x - currentBird.x;
+    const dy = p.y - currentBird.y;
+    if(Math.hypot(dx,dy) <= currentBird.r + 6){
+      isDragging = true;
+    }
+  }
+});
+window.addEventListener('pointermove', (ev)=>{
+  if(!isDragging) return;
+  const p = getCanvasPos(ev);
+  currentBird.x = p.x;
+  currentBird.y = p.y;
+});
+window.addEventListener('pointerup', (ev)=>{
+  if(!isDragging || !currentBird) return;
+  isDragging = false;
+  // 발사: 슬링 앵커(170,110)에서 currentBird까지의 벡터로 발사. 드래그 거리가 클수록 세게.
+  const dx = 170 - currentBird.x;
+  const dy = 110 - currentBird.y;
+  currentBird.vx = dx * 0.35;
+  currentBird.vy = dy * 0.35;
+  currentBird.launched = true;
+  shots++;
+  updateHUD();
+  // 새가 화면 밖으로 나가거나 멈추면 일정시간 후 제거(간단)
+  setTimeout(()=>{ if(currentBird && currentBird.launched) spawnBird(); }, 1200);
+});
+
+/* ========= UI 업데이트 ========= */
+const stageLabel = document.getElementById('stageLabel');
+const scoreLabel = document.getElementById('scoreLabel');
+const shotsLabel = document.getElementById('shotsLabel');
+const leftBlocks = document.getElementById('leftBlocks');
+const messageEl = document.getElementById('message');
+const restartBtn = document.getElementById('restartBtn');
+const nextBtn = document.getElementById('nextBtn');
+
+function updateHUD(){
+  stageLabel.textContent = 'Stage: ' + (stageIndex + 1) + ' / ' + maxStages;
+  scoreLabel.textContent = 'Score: ' + score;
+  shotsLabel.textContent = 'Shots: ' + shots;
+  leftBlocks.textContent = blocks.length;
+}
+
+function message(txt){
+  messageEl.textContent = txt;
+  setTimeout(()=>{ if(messageEl.textContent === txt) messageEl.textContent = ''; }, 3000);
+}
+
+/* ========= 버튼 동작 ========= */
+restartBtn.addEventListener('click', ()=>{
+  resetGame();
+});
+nextBtn.addEventListener('click', ()=>{
+  if(stageIndex + 1 < maxStages){
+    stageIndex++;
+    loadStage(stageIndex);
+  } else {
+    message('마지막 스테이지입니다.');
+  }
+});
+
+/* ========= 초기화 및 시작 ========= */
+loadStage(stageIndex);
+updateHUD();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
