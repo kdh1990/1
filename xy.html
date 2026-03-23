@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나무 퀸텀점프 게임</title>
+    <style>
+        /* Add some basic styling to our game */
+        canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <script>
+        // Get the canvas element
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set the canvas dimensions
+        canvas.width = 800;
+        canvas.height = 600;
+
+        // Define game variables
+        let player = { x: 100, y: canvas.height - 50, width: 20, height: 20, vx: 0, vy: 0 };
+        let stage = 1;
+        let platforms = getPlatforms(stage);
+        let score = 0;
+        let leftPressed = false;
+        let rightPressed = false;
+
+        // Draw functions
+        function drawPlayer() {
+            ctx.beginPath();
+            ctx.rect(player.x, player.y, player.width, player.height);
+            ctx.fillStyle = 'green';
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawPlatforms() {
+            for (let i = 0; i < platforms.length; i++) {
+                ctx.beginPath();
+                ctx.rect(platforms[i].x, platforms[i].y, platforms[i].width, platforms[i].height);
+                ctx.fillStyle = 'brown';
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        function drawScore() {
+            ctx.font = '24px Arial';
+            ctx.fillStyle = 'black';
+            ctx.fillText(`점수: ${score}`, 10, 30);
+            ctx.fillText(`스테이지: ${stage}`, 10, 60);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawPlayer();
+            drawPlatforms();
+            drawScore();
+
+            // Update player position
+            player.x += player.vx;
+            player.y += player.vy;
+            player.vy += 1;
+
+            // Check collision with platforms
+            let onPlatform = false;
+            for (let i = 0; i < platforms.length; i++) {
+                if (checkCollision(player, platforms[i])) {
+                    player.y = platforms[i].y - player.height;
+                    player.vy = 0;
+                    onPlatform = true;
+                }
+            }
+
+            // Check if player is on ground
+            if (player.y + player.height >= canvas.height) {
+                player.y = canvas.height - player.height;
+                player.vy = 0;
+                onPlatform = true;
+            }
+
+            // Check if player reached the top
+            if (player.y < 0) {
+                stage++;
+                if (stage > 10) {
+                    alert('게임 클리어!');
+                    document.location.reload();
+                }
+                player.x = 100;
+                player.y = canvas.height - 50;
+                platforms = getPlatforms(stage);
+            }
+
+            // Update player velocity based on key presses
+            if (leftPressed) {
+                player.vx = -5;
+            } else if (rightPressed) {
+                player.vx = 5;
+            } else {
+                player.vx = 0;
+            }
+
+            // Update score
+            score++;
+        }
+
+        function checkCollision(rect1, rect2) {
+            if (rect1.x + rect1.width > rect2.x &&
+                rect1.x < rect2.x + rect2.width &&
+                rect1.y + rect1.height > rect2.y &&
+                rect1.y < rect2.y + rect2.height) {
+                return true;
+            }
+            return false;
+        }
+
+        function getPlatforms(stage) {
+            let platforms = [];
+            for (let i = 0; i < stage * 5; i++) {
+                platforms.push({
+                    x: Math.random() * (canvas.width - 100),
+                    y: Math.random() * (canvas.height - 50),
+                    width: Math.random() * 50 + 50,
+                    height: 10
+                });
+            }
+            return platforms;
+        }
+
+        // Event listeners
+        document.addEventListener('keydown', keyDownHandler, false);
+        document.addEventListener('keyup', keyUpHandler, false);
+
+        function keyDownHandler(e) {
+            if (e.key === ' ') {
+                if (player.vy === 0) {
+                    player.vy = -20;
+                }
+            } else if (e.key === 'ArrowLeft') {
+                leftPressed = true;
+            } else if (e.key === 'ArrowRight') {
+                rightPressed = true;
+            }
+        }
+
+        function keyUpHandler(e) {
+            if (e.key === 'ArrowLeft') {
+                leftPressed = false;
+            } else if (e.key === 'ArrowRight') {
+                rightPressed = false;
+            }
+        }
+
+        // Main game loop
+        setInterval(draw, 20);
+    </script>
+</body>
+</html>
