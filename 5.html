@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>통합 페이지</title>
+    <style>
+        /* CSS 스타일링 */
+    </style>
+</head>
+<body>
+    <!-- 아이디 로그인 -->
+    <h1>아이디 로그인</h1>
+    <form id="login-form">
+        <input type="text" id="login-id" placeholder="아이디">
+        <input type="password" id="login-pw" placeholder="비밀번호">
+        <button id="login-btn">로그인</button>
+    </form>
+
+    <!-- 회원가입 -->
+    <h1>회원가입</h1>
+    <form id="join-form">
+        <input type="text" id="join-id" placeholder="아이디">
+        <input type="password" id="join-pw" placeholder="비밀번호">
+        <input type="text" id="join-name" placeholder="이름">
+        <button id="join-btn">회원가입</button>
+    </form>
+
+    <!-- 게시판 -->
+    <h1>게시판</h1>
+    <table id="board-table">
+        <thead>
+            <tr>
+                <th>제목</th>
+                <th>작성자</th>
+                <th>내용</th>
+                <th>수정/삭제</th>
+            </tr>
+        </thead>
+        <tbody id="board-body">
+        </tbody>
+    </table>
+    <form id="board-form">
+        <input type="text" id="board-title" placeholder="제목">
+        <input type="text" id="board-writer" placeholder="작성자">
+        <textarea id="board-content" placeholder="내용"></textarea>
+        <button id="board-add-btn">글쓰기</button>
+    </form>
+
+    <!-- 영화 예매 시스템 -->
+    <h1>영화 예매 시스템</h1>
+    <button id="show-movie-list-btn">영화 목록 보기</button>
+    <table id="movie-table" style="display: none;">
+        <thead>
+            <tr>
+                <th>영화 제목</th>
+                <th>상영 시간</th>
+                <th>예매</th>
+            </tr>
+        </thead>
+        <tbody id="movie-body">
+        </tbody>
+    </table>
+    <form id="movie-form" style="display: none;">
+        <input type="text" id="movie-title" placeholder="영화 제목">
+        <input type="text" id="movie-time" placeholder="상영 시간">
+        <button id="movie-add-btn">영화 추가</button>
+    </form>
+
+    <script>
+        let users = [];
+        let boards = [];
+        let movies = [];
+
+        document.getElementById('login-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            const id = document.getElementById('login-id').value;
+            const pw = document.getElementById('login-pw').value;
+            const user = users.find((user) => user.id === id && user.pw === pw);
+            if (user) {
+                alert('로그인 성공!');
+            } else {
+                alert('로그인 실패!');
+            }
+        });
+
+        document.getElementById('join-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            const id = document.getElementById('join-id').value;
+            const pw = document.getElementById('join-pw').value;
+            const name = document.getElementById('join-name').value;
+            users.push({ id, pw, name });
+            alert('회원가입 성공!');
+        });
+
+        document.getElementById('board-add-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            const title = document.getElementById('board-title').value;
+            const writer = document.getElementById('board-writer').value;
+            const content = document.getElementById('board-content').value;
+            boards.push({ title, writer, content });
+            renderBoards();
+        });
+
+        function renderBoards() {
+            const boardBody = document.getElementById('board-body');
+            boardBody.innerHTML = '';
+            boards.forEach((board) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${board.title}</td>
+                    <td>${board.writer}</td>
+                    <td>${board.content}</td>
+                `;
+                boardBody.appendChild(row);
+            });
+        }
+
+        document.getElementById('show-movie-list-btn').addEventListener('click', () => {
+            const movieTable = document.getElementById('movie-table');
+            const movieForm = document.getElementById('movie-form');
+            if (movieTable.style.display === 'none') {
+                movieTable.style.display = 'table';
+                movieForm.style.display = 'block';
+            } else {
+                movieTable.style.display = 'none';
+                movieForm.style.display = 'none';
+            }
+            renderMovies();
+        });
+
+        document.getElementById('movie-add-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            const title = document.getElementById('movie-title').value;
+            const time = document.getElementById('movie-time').value;
+            movies.push({ title, time });
+            renderMovies();
+        });
+
+        function renderMovies() {
+            const movieBody = document.getElementById('movie-body');
+            movieBody.innerHTML = '';
+            movies.forEach((movie) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${movie.title}</td>
+                    <td>${movie.time}</td>
+                    <td>
+                        <button>예매</button>
+                    </td>
+                `;
+                movieBody.appendChild(row);
+            });
+        }
+    </script>
+</body>
+</html> 

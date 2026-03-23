@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>벽돌깨기 게임</title>
+    <style>
+        /* Add some basic styling to our game */
+        canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <script>
+        // Get the canvas element
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set the canvas dimensions
+        canvas.width = 800;
+        canvas.height = 600;
+
+        // Define game variables
+        let ballRadius = 20;
+        let balls = [{ x: canvas.width / 2, y: canvas.height - 30, dx: 4, dy: -4 }];
+        let paddleHeight = 10;
+        let paddleWidth = 60;
+        let paddleX = (canvas.width - paddleWidth) / 2;
+        let rightPressed = false;
+        let leftPressed = false;
+        let brickRowCount = 5;
+        let brickColumnCount = 8;
+        let brickWidth = 80;
+        let brickHeight = 20;
+        let brickPadding = 10;
+        let brickOffsetTop = 30;
+        let brickOffsetLeft = 30;
+        let score = 0;
+        let stage = 1;
+        let bricks = [];
+        for (let c = 0; c < brickColumnCount; c++) {
+            bricks[c] = [];
+            for (let r = 0; r < brickRowCount; r++) {
+                bricks[c][r] = { x: 0, y: 0, status: 1 };
+            }
+        }
+        let item = { x: Math.random() * (canvas.width - 20), y: 0, width: 20, height: 20, falling: true, type: Math.random() < 0.5 ? 'ball' : 'paddle' };
+
+        // Draw functions
+        function drawBalls() {
+            for (let i = 0; i < balls.length; i++) {
+                ctx.beginPath();
+                ctx.arc(balls[i].x, balls[i].y, ballRadius, 0, Math.PI * 2);
+                ctx.fillStyle = 'red';
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        function drawPaddle() {
+            ctx.beginPath();
+            ctx.rect(paddleX, canvas.height - paddleHeight, paddleWidth, paddleHeight);
+            ctx.fillStyle = 'blue';
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawBricks() {
+            for (let c = 0; c < brickColumnCount; c++) {
+                for (let r = 0; r < brickRowCount; r++) {
+                    if (bricks[c][r].status === 1) {
+                        let brickX = (c * (brickWidth + brickPadding)) + brickOffsetLeft;
+                        let brickY = (r * (brickHeight + brickPadding)) + brickOffsetTop;
+                        bricks[c][r].x = brickX;
+                        bricks[c][r].y = brickY;
+                        ctx.beginPath();
+                        ctx.rect(brickX, brickY, brickWidth, brickHeight);
+                        ctx.fillStyle = 'green';
+                        ctx.fill();
+                        ctx.closePath();
+                    }
+                }
+            }
+        }
+
+        function drawItem() {
+            ctx.beginPath();
+            ctx.rect(item.x, item.y, item.width, item.height);
+            ctx.fillStyle = item.type === 'ball' ? 'purple' : 'orange';
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawScore() {
+            ctx.font = '16px Arial';
+            ctx.fillStyle = 'black';
+            ctx.fillText(`점수: ${score}`, 8, 20);
+            ctx.fillText(`스테이지: ${stage}`, 8, 40);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBricks();
+            drawBalls();
+            drawPaddle();
+            drawItem();
+            drawScore();
+            collisionDetection();
+
+            // Move the balls
+            for (let i = 0; i < balls.length; i++) {
+                balls[i].x += balls[i].dx;
+                balls[i].y += balls[i].dy;
+
+                // Bounce off walls
+                if (balls[i].x + balls[i].dx > canvas.width - ballRadius || balls[i].x + balls[i].dx < ballRadius) {
+                    balls[i].dx = -balls[i].dx;
+                }
+                if (balls[i].y + balls[i].dy < ballRadius) {
+                    balls[i].dy = -balls[i].dy;
+                } else if (balls[i].y + balls[i].dy > canvas.height - ballRadius - paddleHeight) {
+                    if (balls[i].x > paddleX && balls[i].x < paddleX + paddleWidth) {
+                        balls[i].dy = -balls[i].dy;
+                    } else {
+                        balls.splice(i, 1);
+                        if (balls.length === 0) {
+                            alert('게임 오버!');
+                            document.location.reload();
+                        }
+                    }
+                }
+            }
+
+            // Paddle movement
+            if (rightPressed && paddleX < canvas.width - paddleWidth) {
+                paddleX += 7;
+            } else if (leftPressed && paddleX > 0) {
+                paddleX -= 7;
+            }
+
+            // Item falling
+            if (item.falling) {
+                item.y += 2;
+                if (item.y > canvas.height) {
+                    item.y = 0;
+                    item.x = Math.random() * (canvas.width - item.width);
+                    item.type = Math.random() < 0.5 ? 'ball' : 'paddle';
+                }
+                if (checkItemCollision()) {
+                    if (item.type === 'ball') {
+                        balls.push({ x: paddleX + paddleWidth / 2, y: canvas.height - paddleHeight - ballRadius, dx: Math.random() < 0.5 ? -4 : 4, dy: -4 });
+                    } else {
+                        paddleWidth += 10;
+                    }
+                    item.y = 0;
+                    item.x = Math.random() * (canvas.width - item.width);
+                    item.type = Math.random() < 0.5 ? 'ball' : 'paddle';
+                }
+            }
+
+            // Stage clear
+            if (score >= brickRowCount * brickColumnCount) {
+                stage++;
+                score = 0;
+                brickRowCount++;
+                if (stage > 10) {
+                    alert('게임 클리어!');
+                    document.location.reload();
+                }
+                initBricks();
+            }
+        }
+
+        function collisionDetection() {
+            for (let c = 0; c < brickColumnCount; c++) {
+                for (let r = 0; r < brickRowCount; r++) {
+                    let b = bricks[c][r];
+                    if (b.status === 1) {
+                        for (let i = 0; i < balls.length; i++) {
+                            if (balls[i].x > b.x && balls[i].x < b.x + brickWidth && balls[i].y > b.y && balls[i].y < b.y + brickHeight) {
+                                balls[i].dy = -balls[i].dy;
+                                b.status = 0;
+                                score++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function checkItemCollision() {
+            if (item.y + item.height > canvas.height - paddleHeight && item.x > paddleX && item.x < paddleX + paddleWidth) {
+                return true;
+            }
+            return false;
+        }
+
+        function initBricks() {
+            for (let c = 0; c < brickColumnCount; c++) {
+                bricks[c] = [];
+                for (let r = 0; r < brickRowCount; r++) {
+                    bricks[c][r] = { x: 0, y: 0, status: 1 };
+                }
+            }
+        }
+
+        // Event listeners
+        document.addEventListener('keydown', keyDownHandler, false);
+        document.addEventListener('keyup', keyUpHandler, false);
+
+        function keyDownHandler(e) {
+            if (e.key === 'Right' || e.key === 'ArrowRight') {
+                rightPressed = true;
+            } else if (e.key === 'Left' || e.key === 'ArrowLeft') {
+                leftPressed = true;
+            }
+        }
+
+        function keyUpHandler(e) {
+            if (e.key === 'Right' || e.key === 'ArrowRight') {
+                rightPressed = false;
+            } else if (e.key === 'Left' || e.key === 'ArrowLeft') {
+                leftPressed = false;
+            }
+        }
+
+        // Main game loop
+        setInterval(draw, 20);
+    </script>
+</body>
+</html>

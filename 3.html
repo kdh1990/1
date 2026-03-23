@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>통합 페이지</title>
+    <style>
+        /* CSS 스타일링 */
+    </style>
+</head>
+<body>
+    <!-- 아이디 로그인 -->
+    <h1>아이디 로그인</h1>
+    <form id="login-form">
+        <input type="text" id="login-id" placeholder="아이디">
+        <input type="password" id="login-pw" placeholder="비밀번호">
+        <button id="login-btn">로그인</button>
+    </form>
+
+    <!-- 회원가입 -->
+    <h1>회원가입</h1>
+    <form id="join-form">
+        <input type="text" id="join-id" placeholder="아이디">
+        <input type="password" id="join-pw" placeholder="비밀번호">
+        <input type="text" id="join-name" placeholder="이름">
+        <button id="join-btn">회원가입</button>
+    </form>
+
+    <!-- 게시판 -->
+    <h1>게시판</h1>
+    <table id="board-table">
+        <thead>
+            <tr>
+                <th>제목</th>
+                <th>작성자</th>
+                <th>내용</th>
+                <th>수정/삭제</th>
+            </tr>
+        </thead>
+        <tbody id="board-body">
+        </tbody>
+    </table>
+    <form id="board-form">
+        <input type="text" id="board-title" placeholder="제목">
+        <input type="text" id="board-writer" placeholder="작성자">
+        <textarea id="board-content" placeholder="내용"></textarea>
+        <button id="board-add-btn">글쓰기</button>
+    </form>
+
+    <!-- 쇼핑몰 -->
+    <h1>쇼핑몰</h1>
+    <table id="product-table">
+        <thead>
+            <tr>
+                <th>상품명</th>
+                <th>가격</th>
+                <th>설명</th>
+                <th>장바구니</th>
+            </tr>
+        </thead>
+        <tbody id="product-body">
+        </tbody>
+    </table>
+    <form id="product-form">
+        <input type="text" id="product-name" placeholder="상품명">
+        <input type="number" id="product-price" placeholder="가격">
+        <textarea id="product-description" placeholder="설명"></textarea>
+        <button id="product-add-btn">상품 추가</button>
+    </form>
+
+    <!-- 장바구니 -->
+    <h1>장바구니</h1>
+    <table id="cart-table">
+        <thead>
+            <tr>
+                <th>상품명</th>
+                <th>수량</th>
+                <th>가격</th>
+                <th>삭제</th>
+            </tr>
+        </thead>
+        <tbody id="cart-body">
+        </tbody>
+    </table>
+
+    <script>
+        // 자바스크립트 코드
+        let users = [];
+        let boards = [];
+        let products = [];
+        let cart = [];
+
+        // 아이디 로그인
+        document.getElementById('login-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            const id = document.getElementById('login-id').value;
+            const pw = document.getElementById('login-pw').value;
+            const user = users.find((user) => user.id === id && user.pw === pw);
+            if (user) {
+                alert('로그인 성공!');
+            } else {
+                alert('로그인 실패!');
+            }
+        });
+
+        // 회원가입
+        document.getElementById('join-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            const id = document.getElementById('join-id').value;
+            const pw = document.getElementById('join-pw').value;
+            const name = document.getElementById('join-name').value;
+            users.push({ id, pw, name });
+            alert('회원가입 성공!');
+        });
+
+        // 게시판
+        document.getElementById('board-add-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            const title = document.getElementById('board-title').value;
+            const writer = document.getElementById('board-writer').value;
+            const content = document.getElementById('board-content').value;
+            boards.push({ title, writer, content });
+            renderBoards();
+        });
+
+        function renderBoards() {
+            const boardBody = document.getElementById('board-body');
+            boardBody.innerHTML = '';
+            boards.forEach((board, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${board.title}</td>
+                    <td>${board.writer}</td>
+                    <td>${board.content}</td>
+                    <td>
+                        <button onclick="updateBoard(${index})">수정</button>
+                        <button onclick="deleteBoard(${index})">삭제</button>
+                    </td>
+                `;
+                boardBody.appendChild(row);
+            });
+        }
+
+        function updateBoard(index) {
+            const board = boards[index];
+            const title = prompt('제목을 입력하세요', board.title);
+            const writer = prompt('작성자를 입력하세요', board.writer);
+            const content = prompt('내용을 입력하세요', board.content);
+            boards[index] = { title, writer, content };
+            renderBoards();
+        }
+
+        function deleteBoard(index) {
+            if (confirm('정말 삭제하시겠습니까?')) {
+                boards.splice(index, 1);
+                renderBoards();
+            }
+        }
+
+        // 쇼핑몰
+        document.getElementById('product-add-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('product-name').value;
+            const price = parseInt(document.getElementById('product-price').value);
+            const description = document.getElementById('product-description').value;
+            products.push({ name, price, description });
+            renderProducts();
+        });
+
+        function renderProducts() {
+            const productBody = document.getElementById('product-body');
+            productBody.innerHTML = '';
+            products.forEach((product, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${product.name}</td>
+                    <td>${product.price}</td>
+                    <td>${product.description}</td>
+                    <td>
+                        <button onclick="addToCart(${index})">장바구니에 추가</button>
+                    </td>
+                `;
+                productBody.appendChild(row);
+            });
+        }
+
+        function addToCart(index) {
+            const product = products[index];
+            const existingItem = cart.find((item) => item.product === product);
+            if (existingItem) {
+                existingItem.quantity++;
+            } else {
+                cart.push({ product, quantity: 1 });
+            }
+            renderCart();
+        }
+
+        function renderCart() {
+            const cartBody = document.getElementById('cart-body');
+            cartBody.innerHTML = '';
+            cart.forEach((item, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.product.name}</td>
+                    <td>${item.quantity}</td>
+                    <td>${item.product.price * item.quantity}</td>
+                    <td>
+                        <button onclick="deleteFromCart(${index})">삭제</button>
+                    </td>
+                `;
+                cartBody.appendChild(row);
+            });
+        }
+
+        function deleteFromCart(index) {
+            if (confirm('정말 삭제하시겠습니까?')) {
+                cart.splice(index, 1);
+                renderCart();
+            }
+        }
+    </script>
+</body>
+</html>

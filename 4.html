@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>학교 종합정보시스템</title>
+    <style>
+        /* CSS 스타일링 */
+    </style>
+</head>
+<body>
+    <!-- 아이디 로그인 -->
+    <h1>아이디 로그인</h1>
+    <form id="login-form">
+        <input type="text" id="login-id" placeholder="아이디">
+        <input type="password" id="login-pw" placeholder="비밀번호">
+        <button id="login-btn">로그인</button>
+    </form>
+
+    <!-- 회원가입 -->
+    <h1>회원가입</h1>
+    <form id="join-form">
+        <input type="text" id="join-id" placeholder="아이디">
+        <input type="password" id="join-pw" placeholder="비밀번호">
+        <input type="text" id="join-name" placeholder="이름">
+        <button id="join-btn">회원가입</button>
+    </form>
+
+    <!-- 게시판 -->
+    <h1>게시판</h1>
+    <table id="board-table">
+        <thead>
+            <tr>
+                <th>제목</th>
+                <th>작성자</th>
+                <th>내용</th>
+                <th>수정/삭제</th>
+            </tr>
+        </thead>
+        <tbody id="board-body">
+        </tbody>
+    </table>
+    <form id="board-form">
+        <input type="text" id="board-title" placeholder="제목">
+        <input type="text" id="board-writer" placeholder="작성자">
+        <textarea id="board-content" placeholder="내용"></textarea>
+        <button id="board-add-btn">글쓰기</button>
+    </form>
+
+    <!-- 강의 관리 -->
+    <h1>강의 관리</h1>
+    <table id="lecture-table">
+        <thead>
+            <tr>
+                <th>강의명</th>
+                <th>교수명</th>
+                <th>학점</th>
+                <th>수강신청</th>
+            </tr>
+        </thead>
+        <tbody id="lecture-body">
+        </tbody>
+    </table>
+    <form id="lecture-form">
+        <input type="text" id="lecture-name" placeholder="강의명">
+        <input type="text" id="lecture-professor" placeholder="교수명">
+        <input type="number" id="lecture-credit" placeholder="학점">
+        <button id="lecture-add-btn">강의 추가</button>
+    </form>
+
+    <!-- 수강신청 -->
+    <h1>수강신청</h1>
+    <table id="enroll-table">
+        <thead>
+            <tr>
+                <th>강의명</th>
+                <th>교수명</th>
+                <th>학점</th>
+                <th>수강신청 취소</th>
+            </tr>
+        </thead>
+        <tbody id="enroll-body">
+        </tbody>
+    </table>
+
+    <script>
+        let users = [];
+        let boards = [];
+        let lectures = [];
+        let enrollments = [];
+
+        // 아이디 로그인
+        document.getElementById('login-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            const id = document.getElementById('login-id').value;
+            const pw = document.getElementById('login-pw').value;
+            const user = users.find((user) => user.id === id && user.pw === pw);
+            if (user) {
+                alert('로그인 성공!');
+            } else {
+                alert('로그인 실패!');
+            }
+        });
+
+        // 회원가입
+        document.getElementById('join-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            const id = document.getElementById('join-id').value;
+            const pw = document.getElementById('join-pw').value;
+            const name = document.getElementById('join-name').value;
+            users.push({ id, pw, name });
+            alert('회원가입 성공!');
+        });
+
+        // 게시판
+        document.getElementById('board-add-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            const title = document.getElementById('board-title').value;
+            const writer = document.getElementById('board-writer').value;
+            const content = document.getElementById('board-content').value;
+            boards.push({ title, writer, content });
+            renderBoards();
+        });
+
+        function renderBoards() {
+            const boardBody = document.getElementById('board-body');
+            boardBody.innerHTML = '';
+            boards.forEach((board, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${board.title}</td>
+                    <td>${board.writer}</td>
+                    <td>${board.content}</td>
+                    <td>
+                        <button onclick="updateBoard(${index})">수정</button>
+                        <button onclick="deleteBoard(${index})">삭제</button>
+                    </td>
+                `;
+                boardBody.appendChild(row);
+            });
+        }
+
+        // 강의 관리
+        document.getElementById('lecture-add-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('lecture-name').value;
+            const professor = document.getElementById('lecture-professor').value;
+            const credit = parseInt(document.getElementById('lecture-credit').value);
+            lectures.push({ name, professor, credit });
+            renderLectures();
+        });
+
+        function renderLectures() {
+            const lectureBody = document.getElementById('lecture-body');
+            lectureBody.innerHTML = '';
+            lectures.forEach((lecture, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${lecture.name}</td>
+                    <td>${lecture.professor}</td>
+                    <td>${lecture.credit}</td>
+                    <td>
+                        <button onclick="enrollLecture(${index})">수강신청</button>
+                    </td>
+                `;
+                lectureBody.appendChild(row);
+            });
+        }
+
+        // 수강신청
+        function enrollLecture(index) {
+            const lecture = lectures[index];
+            enrollments.push(lecture);
+            renderEnrollments();
+        }
+
+        function renderEnrollments() {
+            const enrollBody = document.getElementById('enroll-body');
+            enrollBody.innerHTML = '';
+            enrollments.forEach((enroll, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${enroll.name}</td>
+                    <td>${enroll.professor}</td>
+                    <td>${enroll.credit}</td>
+                    <td>
+                        <button onclick="cancelEnroll(${index})">수강신청 취소</button>
+                    </td>
+                `;
+                enrollBody.appendChild(row);
+            });
+        }
+
+        function cancelEnroll(index) {
+            enrollments.splice(index, 1);
+            renderEnrollments();
+        }
+    </script>
+</body>
+</html>

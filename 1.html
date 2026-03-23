@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>게시판</title>
+    <style>
+        table {
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>게시판</h1>
+    <table id="board-table">
+        <thead>
+            <tr>
+                <th>번호</th>
+                <th>제목</th>
+                <th>작성자</th>
+                <th>등록일</th>
+                <th>수정/삭제</th>
+            </tr>
+        </thead>
+        <tbody id="board-body">
+        </tbody>
+    </table>
+    <form id="write-form">
+        <input type="text" id="title" placeholder="제목">
+        <input type="text" id="writer" placeholder="작성자">
+        <textarea id="content" placeholder="내용"></textarea>
+        <button id="write-btn">등록</button>
+    </form>
+
+    <script>
+        let boardData = [];
+        let currentPage = 1;
+        const boardBody = document.getElementById('board-body');
+        const writeForm = document.getElementById('write-form');
+        const writeBtn = document.getElementById('write-btn');
+
+        // 게시물 등록
+        writeBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const title = document.getElementById('title').value;
+            const writer = document.getElementById('writer').value;
+            const content = document.getElementById('content').value;
+            const newPost = {
+                num: boardData.length + 1,
+                title,
+                writer,
+                regDate: new Date().toLocaleString(),
+                content
+            };
+            boardData.push(newPost);
+            renderBoard();
+            writeForm.reset();
+        });
+
+        // 게시물 렌더링
+        function renderBoard() {
+            boardBody.innerHTML = '';
+            const start = (currentPage - 1) * 10;
+            const end = start + 10;
+            const paginatedData = boardData.slice(start, end);
+            paginatedData.forEach((post) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${post.num}</td>
+                    <td><a href="#" onclick="showPost(${post.num})">${post.title}</a></td>
+                    <td>${post.writer}</td>
+                    <td>${post.regDate}</td>
+                    <td>
+                        <button onclick="updatePost(${post.num})">수정</button>
+                        <button onclick="deletePost(${post.num})">삭제</button>
+                    </td>
+                `;
+                boardBody.appendChild(row);
+            });
+        }
+
+        // 게시물 상세보기
+        function showPost(num) {
+            const post = boardData.find((p) => p.num === num);
+            if (post) {
+                alert(`제목: ${post.title}\n작성자: ${post.writer}\n내용: ${post.content}`);
+            }
+        }
+
+        // 게시물 수정
+        function updatePost(num) {
+            const post = boardData.find((p) => p.num === num);
+            if (post) {
+                const title = prompt('제목을 입력하세요', post.title);
+                const writer = prompt('작성자를 입력하세요', post.writer);
+                const content = prompt('내용을 입력하세요', post.content);
+                post.title = title;
+                post.writer = writer;
+                post.content = content;
+                renderBoard();
+            }
+        }
+
+        // 게시물 삭제
+        function deletePost(num) {
+            if (confirm('정말 삭제하시겠습니까?')) {
+                boardData = boardData.filter((post) => post.num !== num);
+                renderBoard();
+            }
+        }
+
+        renderBoard();
+    </script>
+</body>
+</html>

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>JS Angry Birds - Level System</title>
+    <style>
+        body { margin: 0; background: #222; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: 'Malgun Gothic', sans-serif; }
+        canvas { background: #87CEEB; border: 4px solid #333; cursor: crosshair; }
+        .ui { position: absolute; top: 20px; color: white; text-align: center; pointer-events: none; }
+        .stats { position: absolute; bottom: 20px; left: 20px; color: white; font-size: 18px; }
+    </style>
+</head>
+<body>
+    <div class="ui">
+        <h2 id="msg">돼지를 모두 맞추세요!</h2>
+        <p>마우스 드래그로 발사 | R: 현재 스테이지 재시작</p>
+    </div>
+    <div class="stats" id="stats">Stage: 1 | Pigs: 0</div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 900;
+        canvas.height = 600;
+
+        // 게임 상태
+        let stage = 1;
+        const gravity = 0.25;
+        const groundY = 550;
+
+        let bird, blocks, pigs;
+        let isStageClearing = false;
+
+        function initStage(level) {
+            isStageClearing = false;
+            document.getElementById('msg').innerText = `Stage ${level} - 시작!`;
+            
+            // 새 초기화
+            bird = {
+                x: 150, y: 450, radius: 15,
+                vx: 0, vy: 0,
+                isDragging: false, isFired: false,
+                startX: 150, startY: 450
+            };
+
+            blocks = [];
+            pigs = [];
+
+            // 레벨별 배치 (간단한 알고리즘)
+            const stackCount = level + 2; 
+            for(let i=0; i<stackCount; i++) {
+                // 블록 쌓기
+                blocks.push({ x: 600 + (i%2)*40, y: groundY - (i*50) - 50, w: 35, h: 45, vx: 0, vy: 0 });
+                // 2층마다 돼지 한 마리씩 배치
+                if(i % 2 === 0) {
+                    pigs.push({ x: 650 + (i*10), y: groundY - (i*50) - 40, radius: 12, alive: true });
+                }
+            }
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('stats').innerText = `Stage: ${stage} | Remaining Pigs: ${pigs.filter(p => p.alive).length}`;
+        }
+
+        // 마우스 제어
+        canvas.addEventListener('mousedown', e => {
+            if (bird.isFired || isStageClearing) return;
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            if (Math.hypot(mx - bird.x, my - bird.y) < 30) bird.isDragging = true;
+        });
+
+        window.addEventListener('mousemove', e => {
+            if (!bird.isDragging) return;
+            const rect = canvas.getBoundingClientRect();
+            bird.x = e.clientX - rect.left;
+            bird.y = e.clientY - rect.top;
+            const dist = Math.hypot(bird.x - bird.startX, bird.y - bird.startY);
+            if (dist > 100) {
+                const angle = Math.atan2(bird.y - bird.startY, bird.x - bird.startX);
+                bird.x = bird.startX + Math.cos(angle) * 100;
+                bird.y = bird.startY + Math.sin(angle) * 100;
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (!bird.isDragging) return;
+            bird.isDragging = false;
+            bird.isFired = true;
+            bird.vx = (bird.startX - bird.x) * 0.15;
+            bird.vy = (bird.startY - bird.y) * 0.15;
+        });
+
+        function checkCollision() {
+            if (!bird.isFired) return;
+
+            // 새와 돼지 충돌
+            pigs.forEach(p => {
+                if (p.alive && Math.hypot(bird.x - p.x, bird.y - p.y) < bird.radius + p.radius) {
+                    p.alive = false;
+                    updateUI();
+                }
+            });
+
+            // 새와 블록 충돌
+            blocks.forEach(b => {
+                let cx = Math.max(b.x, Math.min(bird.x, b.x + b.w));
+                let cy = Math.max(b.y, Math.min(bird.y, b.y + b.h));
+                if (Math.hypot(bird.x - cx, bird.y - cy) < bird.radius) {
+                    b.vx = bird.vx * 0.5;
+                    b.vy = bird.vy * 0.5;
+                }
+            });
+
+            // 스테이지 클리어 조건 확인
+            if (pigs.every(p => !p.alive) && !isStageClearing) {
+                isStageClearing = true;
+                document.getElementById('msg').innerText = "Stage Clear! 잠시 후 다음 단계로...";
+                setTimeout(() => {
+                    stage++;
+                    initStage(stage);
+                }, 2000);
+            }
+        }
+
+        function update() {
+            if (bird.isFired) {
+                bird.vy += gravity;
+                bird.x += bird.vx;
+                bird.y += bird.vy;
+                if (bird.y > groundY || bird.x > canvas.width || bird.x < 0) {
+                    // 새가 화면 밖이나 바닥으로 가면 초기화 (돼지가 남았을 경우)
+                    if(!isStageClearing && (Math.abs(bird.vx) < 0.1)) resetBird();
+                }
+                if (bird.y > groundY) { bird.y = groundY; bird.vx *= 0.8; bird.vy *= -0.3; }
+            }
+
+            blocks.forEach(b => {
+                b.x += b.vx; b.y += b.vy;
+                b.vy += gravity;
+                if (b.y + b.h > groundY) { b.y = groundY - b.h; b.vy = 0; b.vx *= 0.9; }
+            });
+
+            checkCollision();
+        }
+
+        function resetBird() {
+            bird.isFired = false;
+            bird.x = bird.startX;
+            bird.y = bird.startY;
+            bird.vx = 0; bird.vy = 0;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 배경 및 바닥
+            ctx.fillStyle = '#2e7d32';
+            ctx.fillRect(0, groundY, canvas.width, 50);
+
+            // 슬링샷 줄
+            if (bird.isDragging) {
+                ctx.beginPath();
+                ctx.moveTo(bird.startX, bird.startY);
+                ctx.lineTo(bird.x, bird.y);
+                ctx.strokeStyle = '#444';
+                ctx.stroke();
+            }
+
+            // 블록
+            ctx.fillStyle = '#795548';
+            blocks.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
+
+            // 돼지
+            pigs.forEach(p => {
+                if (!p.alive) return;
+                ctx.fillStyle = '#4CAF50';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                // 돼지 눈
+                ctx.fillStyle = 'black';
+                ctx.fillRect(p.x-5, p.y-5, 3, 3);
+                ctx.fillRect(p.x+2, p.y-5, 3, 3);
+            });
+
+            // 새
+            ctx.fillStyle = '#f44336';
+            ctx.beginPath();
+            ctx.arc(bird.x, bird.y, bird.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            update();
+            requestAnimationFrame(draw);
+        }
+
+        window.addEventListener('keydown', e => {
+            if (e.key.toLowerCase() === 'r') initStage(stage);
+        });
+
+        initStage(1);
+        draw();
+    </script>
+</body>
+</html>
